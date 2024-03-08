@@ -1,5 +1,5 @@
-# forester-fmt
+# forester-refs
 
-⚠ WIP!
+Exploring some of the ideas presented in [A Core Calculus for
+Documents](https://arxiv.org/abs/2310.04368) with forester.
 
-A code formatter for [forester](http://www.jonmsterling.com/jms-007N.xml)
