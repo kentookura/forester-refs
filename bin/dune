@@ -1,0 +1,4 @@
+(executable
+ (public_name forester-refs)
+ (name main)
+ (libraries forester_refs dream dream-html))
