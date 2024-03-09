@@ -3,8 +3,12 @@
     opam-nix.url = "github:tweag/opam-nix";
     flake-utils.url = "github:numtide/flake-utils";
     nixpkgs.follows = "opam-nix/nixpkgs";
+    forester-html.url = "/home/kento/forester-html/";
+    opam-repository.url = "github:ocaml/opam-repository";
+    opam-repository.flake = false;
   };
-  outputs = { self, flake-utils, opam-nix, nixpkgs }@inputs:
+  outputs = { self, flake-utils, opam-nix, nixpkgs, forester-html
+    , opam-repository }@inputs:
     let package = "forester_refs";
     in flake-utils.lib.eachDefaultSystem (system:
       let
@@ -17,7 +21,9 @@
           ocamlformat = "*";
         };
         query = devPackagesQuery // { };
-        scope = on.buildOpamProject' { } ./. query;
+        scope = on.buildOpamProject' {
+          repos = [ "${opam-repository}" forester-html ];
+        } ./. query;
         overlay = final: prev: {
           ${package} =
             prev.${package}.overrideAttrs (_: { doNixSupport = false; });
