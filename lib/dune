@@ -1,4 +1,4 @@
 (library
  (name forester_refs)
  (modules forester_refs)
- (libraries forester.frontend forester.core))
+ (libraries forester.frontend forester.core lsp))

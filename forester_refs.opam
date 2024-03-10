@@ -15,6 +15,7 @@ depends: [
   "forester"
   "dream"
   "dream-html"
+  "lsp"
   "odoc" {with-doc}
 ]
 build: [

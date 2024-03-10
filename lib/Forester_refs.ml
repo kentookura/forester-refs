@@ -5,16 +5,7 @@ open Forest
 module A = Analysis
 module M = A.Map
 module Gph = A.Gph
-
-(*
-  NOTE: For fully evaluated (static) forests, you would only use
-  import_graph to create a table of contents. However, when we are editing a
-  tree or dynamically render fragments, it might be useful to be able to
-  create a table of contents from a Sem.tree. The problem I'm facing is that
-  we can't just do a simple fold as in the paper. When we create the table of
-  contents of an open tree, we assume the forest being referenced by a
-  transclusion to be static.
-*)
+module L = Lsp.Types
 
 (*
   NOTE: A polymorphic numbering system will allow us to create seperate counters
@@ -27,29 +18,6 @@ module Gph = A.Gph
 *)
 
 type id_ctx = (addr * int list) list
-
-let lookup_each forest addrs =
-  let rec step (acc, queue) =
-    match queue with
-    | [] -> acc
-    | x :: xs -> (
-        match M.find_opt x forest.trees with
-        | None -> step (acc, xs)
-        | Some tree -> (
-            match tree.addr with
-            | Some addr -> step (addr :: acc, xs)
-            | None -> step (acc, xs)))
-  in
-  step ([], addrs)
-
-let children addr forest =
-  let a = Lazy.force forest.analysis in
-  let graph = a.transclusion_graph in
-  (*
-    FIXME: The predecessors in the transclusion graph are not in the correct
-    order.
-  *)
-  Gph.pred graph addr |> fun a -> lookup_each forest a
 
 let rec addrs_at_depth addr (d : int list) forest : id_ctx * int list =
   let k, ks =
@@ -76,7 +44,31 @@ and addrs_at_depth_list children d forest =
   in
   ctx
 
-let section_ids n forest : id_ctx =
+and children addr forest =
+  let a = Lazy.force forest.analysis in
+  let graph = a.transclusion_graph in
+  (*
+    FIXME: The predecessors in the transclusion graph are not in the correct
+    order. We have to scan tree.body instead. Reversing them happens to give me
+    the correct output here, but I need to check if this is always the case
+  *)
+  Gph.pred graph addr |> List.rev |> fun a -> lookup_each forest a
+
+and lookup_each forest addrs =
+  let rec step (acc, queue) =
+    match queue with
+    | [] -> acc
+    | x :: xs -> (
+        match M.find_opt x forest.trees with
+        | None -> step (acc, xs)
+        | Some tree -> (
+            match tree.addr with
+            | Some addr -> step (addr :: acc, xs)
+            | None -> step (acc, xs)))
+  in
+  step ([], addrs)
+
+and section_ids n forest : id_ctx =
   let ctx, _ = addrs_at_depth n [ 1 ] forest in
   ctx
 
@@ -84,9 +76,29 @@ and valid tree forest =
   tree.body
   |> List.filter_map (fun n ->
          match n with
-         | Range.{ value = Transclude (_, addr); _ } ->
-             M.find_opt addr forest.trees
+         | Range.{ value = Transclude (_, addr); _ } -> Some addr
          | _ -> None)
+  |> List.for_all (fun addr -> M.find_opt addr forest.trees |> Option.is_some)
+
+and lsp_pos_of_pos (pos : Asai.Range.position) =
+  L.Position.create ~line:(pos.line_num - 1)
+    ~character:(pos.offset - pos.start_of_line)
+
+and lsp_range_of_range (r : Asai.Range.t option) =
+  match r with
+  | Some r ->
+      let start, stop =
+        match Asai.Range.view r with
+        | `Range (start, stop) -> (start, stop)
+        | `End_of_file pos -> (pos, pos)
+      in
+      L.Range.create ~start:(lsp_pos_of_pos start) ~end_:(lsp_pos_of_pos stop)
+  | None ->
+      (* When we have a message without a location,
+         we set it's location to the start of the file,
+         as we don't have any better choices. *)
+      let start_of_file = L.Position.create ~line:0 ~character:0 in
+      L.Range.create ~start:start_of_file ~end_:start_of_file
 
 and invalid tree forest =
   tree.body
@@ -94,8 +106,31 @@ and invalid tree forest =
          match n with
          | Range.{ value = Transclude (_, addr); loc } -> (
              match M.find_opt addr forest.trees with
-             | None ->
-                 let diagnostic = loc in
-                 Some diagnostic
+             | None -> (
+                 match loc with
+                 | Some l -> Some (to_diagnostic addr (Some l))
+                 | _ -> None)
              | Some _ -> None)
          | _ -> None)
+
+and to_diagnostic addr loc : Lsp.Types.Diagnostic.t =
+  {
+    code = None;
+    codeDescription = None;
+    data = None;
+    message = Format.sprintf "Invalid address `%s`" addr;
+    range = lsp_range_of_range loc;
+    relatedInformation = Some [];
+    severity = Some Error;
+    source = None;
+    tags = None;
+  }
+
+let 
+
+let rec reforest (ns : Sem.t) (par : Sem.t) : Sem.t =
+  let flush_par = Range.{ loc = None; value = Prim (`P, List.rev par) } in
+  match ns with
+  | [] -> [ flush_par ]
+  | n :: ns' -> (
+      match n.value with Math (_, _) -> [] | _ -> flush_par :: reforest ns' [])

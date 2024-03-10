@@ -19,7 +19,7 @@
  (name forester_refs)
  (synopsis "A short synopsis")
  (description "A longer description")
- (depends ocaml dune forester dream dream-html)
+ (depends ocaml dune forester dream dream-html lsp)
  (tags
   (topics "to describe" your project)))
 
