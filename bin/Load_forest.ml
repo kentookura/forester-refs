@@ -54,7 +54,7 @@ and read_trees_in_dirs ~dev ?(ignore_malformed = false) dirs =
        if dev then Option.map Unix.realpath @@ Eio.Path.native fp else None
      in
      match parse_file fp with
-     | code -> Some Code.{ source_path; addr; code }
+     | code -> Some Code.{ source_path; addr = Some addr; code }
      | exception exn -> if ignore_malformed then None else raise exn
 
 and _read_addrs_in_dirs dirs =

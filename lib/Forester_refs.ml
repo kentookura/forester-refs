@@ -62,7 +62,7 @@ and lookup_each forest addrs =
         match M.find_opt x forest.trees with
         | None -> step (acc, xs)
         | Some tree -> (
-            match tree.addr with
+            match tree.fm.addr with
             | Some addr -> step (addr :: acc, xs)
             | None -> step (acc, xs)))
   in
@@ -72,7 +72,7 @@ and section_ids n forest : id_ctx =
   let ctx, _ = addrs_at_depth n [ 1 ] forest in
   ctx
 
-and valid tree forest =
+and valid (tree : Sem.tree) forest =
   tree.body
   |> List.filter_map (fun n ->
          match n with
@@ -100,7 +100,7 @@ and lsp_range_of_range (r : Asai.Range.t option) =
       let start_of_file = L.Position.create ~line:0 ~character:0 in
       L.Range.create ~start:start_of_file ~end_:start_of_file
 
-and invalid tree forest =
+and invalid (tree : Sem.tree) forest =
   tree.body
   |> List.filter_map (fun n ->
          match n with
@@ -125,8 +125,6 @@ and to_diagnostic addr loc : Lsp.Types.Diagnostic.t =
     source = None;
     tags = None;
   }
-
-let 
 
 let rec reforest (ns : Sem.t) (par : Sem.t) : Sem.t =
   let flush_par = Range.{ loc = None; value = Prim (`P, List.rev par) } in
